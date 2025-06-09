@@ -24,7 +24,7 @@
         const data = await res.json();
         reports.set(data);
         
-        await tick();
+        
         await generateImage();
       } catch (e) {
         error.set(e.message);
@@ -48,9 +48,15 @@
     }
   
     onMount(() => {
+      const role = localStorage.getItem('userRole');
+      if (role !== 'admin') {
+        goto('/');
+      }
       const now = new Date();
       month = now.toISOString().slice(0, 7);
       fetchReport();
+      
+
     });
   </script>
   
@@ -58,7 +64,17 @@
     .controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
     .table-container { overflow-x: auto; }
     .report-image { max-width: 100%; border: 1px solid #ddd; margin-top: 1rem; }
-    .popup { position: fixed; top: 1rem; right: 1rem; background: #16a34a; color: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; }
+    .popup { 
+      position: fixed; 
+      top: 1rem; 
+      right: 1rem; 
+      background: #16a34a; 
+      color: white; 
+      padding: 1rem; 
+      border-radius: 0.5rem; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+      z-index: 1000; 
+    }
   </style>
   
   <div class="controls">

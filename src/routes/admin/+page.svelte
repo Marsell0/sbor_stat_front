@@ -1,6 +1,7 @@
 <script>
     import { onMount } from 'svelte';
     import { get, writable } from 'svelte/store';
+    import { goto } from '$app/navigation';
     import { getIP } from '$lib/globals'
     import { fly, fade } from 'svelte/transition';
   
@@ -103,7 +104,13 @@
   $: paginatedCriteria = $criteria.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   $: totalPages = Math.ceil($criteria.length / pageSize);
   
-    onMount(fetchCriteria);
+    onMount(() => {
+      const role = localStorage.getItem('userRole');
+      if (role !== 'admin') {
+        goto('/');
+      }
+      fetchCriteria()
+    });
   </script>
   
   {#if showPopup}

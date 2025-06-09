@@ -1,7 +1,9 @@
 <script>
     import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
     import { writable } from 'svelte/store';
     import { getIP } from '$lib/globals'
+    import { fly, fade } from 'svelte/transition';
   
     let username = '';
     let password = '';
@@ -24,7 +26,7 @@
         username = '';
         password = '';
         successMessage.set('Преподаватель зарегистрирован');
-        showPopup()
+        showPopup=true
         fetchTeachers(); // обновим список
       } catch (err) {
         errorMessage.set(err.message);
@@ -55,7 +57,13 @@
     }, 3000);
   };
   
-    onMount(fetchTeachers);
+    onMount(() => {
+      const role = localStorage.getItem('userRole');
+      if (role !== 'chairman') {
+        goto('/');
+      }
+      fetchTeachers()
+    });
   </script>
   
   <h1 class="text-2xl font-bold mb-4">Панель председателя ПЦК</h1>
