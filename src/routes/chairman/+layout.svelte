@@ -21,7 +21,7 @@
       <h2 class="font-bold mb-4">Председатель ПЦК {pck}</h2>
       <ul class="space-y-2">
         <li><a href="/chairman">Главная</a></li>
-        <li><a href="/chairman/report">Критерии</a></li>
+        <li><a href="/chairman/report">Отчеты по ПЦК</a></li>
       </ul>
       <button on:click={logout} class="mt-4 text-sm text-red-500">Выйти</button>
     </aside>

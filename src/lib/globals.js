@@ -4,19 +4,26 @@ export function getIP() {
     return server_http
   }
 
-import { writable } from 'svelte/store';
-// особенность sveltkit, недоступность локалсторэджа при отсутствии проверки на работу в браузере, а не на серверной части
-const isBrowser = typeof window !== 'undefined';
+  import { writable } from 'svelte/store';
 
-const storedRole = isBrowser ? localStorage.getItem('userRole') : null;
-export const role = writable(storedRole);
-
-role.subscribe((value) => {
-  if (isBrowser) {
-    if (value) {
-      localStorage.setItem('userRole', value);
-    } else {
-      localStorage.removeItem('userRole');
+  export const userName = writable('');
+  export const userRole = writable('');
+  export const userPCK = writable('');
+  
+  export function initAuthFromLocalStorage() {
+    if (typeof localStorage !== 'undefined') {
+      userName.set(localStorage.getItem('username') || '');
+      userRole.set(localStorage.getItem('userRole') || '');
+      userPCK.set(localStorage.getItem('userPCK') || '');
     }
   }
-});
+  
+  export function clearAuth() {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
+    userName.set('');
+    userRole.set('');
+    userPCK.set('');
+  }
+  

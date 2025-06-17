@@ -1,12 +1,12 @@
-'use client'
 <script>
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
 
   let reports = [];
-  const username = localStorage.getItem('userName');
+  let username = ''
 
   onMount(async () => {
+    username = localStorage.getItem('userName');
     const res = await fetch('http://localhost:8000/api/user_reports/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -16,7 +16,7 @@
   });
 
   function editReport(id) {
-    goto('/teacher/reports/edit/${id}');
+    goto(`/teacher/report/${id}`);
   }
 </script>
 

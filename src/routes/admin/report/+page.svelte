@@ -1,118 +1,207 @@
-<script>
-    import { onMount } from 'svelte';
-    import html2canvas from 'html2canvas';
-    import { fly } from 'svelte/transition';
-    import { writable } from 'svelte/store';
-  
-    let month = '';
-    const reports = writable([]);
-    const loading = writable(false);
-    const error = writable('');
-    const reportImage = writable('');
-  
-    let tableRef;
-  
-    const API_BASE = 'http://localhost:8000/api';
-  
-    async function fetchReport() {
-      error.set('');
-      loading.set(true);
-      reportImage.set('');
-      try {
-        const res = await fetch(`${API_BASE}/pck-report/?month=${month}`);
-        if (!res.ok) throw new Error('Ошибка загрузки отчета');
-        const data = await res.json();
-        reports.set(data);
-        
-        
-        await generateImage();
-      } catch (e) {
-        error.set(e.message);
-      } finally {
-        loading.set(false);
-      }
-    }
-  
-    async function generateImage() {
-      if (!tableRef) return;
-      try {
-        const canvas = await html2canvas(tableRef, { backgroundColor: '#fff' });
-        reportImage.set(canvas.toDataURL('image/png'));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  
-    function downloadExcel() {
-      window.location.href = `${API_BASE}/pck-report/excel/?month=${month}`;
-    }
-  
-    onMount(() => {
-      const role = localStorage.getItem('userRole');
-      if (role !== 'admin') {
-        goto('/');
-      }
-      const now = new Date();
-      month = now.toISOString().slice(0, 7);
-      fetchReport();
-      
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { userRole } from '$lib/globals';
 
+  let reports = [];
+  
+
+  let showModal = false;
+  let editingReport = null;
+  let updatedData: any = {};
+  let errorMessage = '';
+  let allCriteria = [];
+
+  const pckOptions = [
+    { value: 'it', label: 'Информационные технологии' },
+    { value: 'eco', label: 'Экономические дисциплины' },
+    { value: 'gen', label: 'Общеобразовательные дисциплины' },
+    { value: 'cre', label: 'Креативные индустрии' }
+  ];
+  let selectedPCK = 'it';
+
+
+  onMount(async () => {
+    await fetchCriteria();
+    await fetchReports();
+  });
+
+  async function fetchCriteria() {
+    const res = await fetch('http://localhost:8000/api/criteria/');
+    allCriteria = await res.json();
+  }
+
+  async function fetchReports() {
+    const res = await fetch('http://localhost:8000/api/admin/reports/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pck: selectedPCK })
     });
-  </script>
-  
-  <style>
-    .controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    .table-container { overflow-x: auto; }
-    .report-image { max-width: 100%; border: 1px solid #ddd; margin-top: 1rem; }
-    .popup { 
-      position: fixed; 
-      top: 1rem; 
-      right: 1rem; 
-      background: #16a34a; 
-      color: white; 
-      padding: 1rem; 
-      border-radius: 0.5rem; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
-      z-index: 1000; 
+    reports = await res.json();
+  }
+
+  function openEditModal(report) {
+    editingReport = { ...report };
+    updatedData = {
+      event_name: report.event_name,
+      result: report.result,
+      about_event: report.about_event,
+      members: report.members,
+      proofs: report.proofs,
+      criteria: report.criteria?.map(c => c.id) || []
+    };
+    showModal = true;
+    errorMessage = '';
+  }
+
+  async function exportAdminExcel() {
+    const res = await fetch('http://localhost:8000/api/admin/reports/export/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pck: selectedPCK })
+    });
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Отчеты_${selectedPCK}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+
+  async function saveReport() {
+    if (!updatedData.criteria || updatedData.criteria.length === 0) {
+      errorMessage = 'Выберите хотя бы один критерий';
+      return;
     }
-  </style>
-  
-  <div class="controls">
-    <label>
-      Месяц отчетности:
-      <input type="month" bind:value={month} on:change={fetchReport} class="border rounded px-2 py-1" />
-    </label>
-    <button on:click={fetchReport} class="bg-blue-500 text-white px-4 py-2 rounded">Обновить</button>
-    <button on:click={downloadExcel} class="bg-green-500 text-white px-4 py-2 rounded">Скачать Excel</button>
-  </div>
-  
-  {#if $loading}
-    <p>Загрузка отчета...</p>
-  {:else if $error}
-    <p class="text-red-500">{$error}</p>
-  {:else}
-    <div class="table-container" bind:this={tableRef}>
-      <table class="table-auto w-full border-collapse border">
-        <thead>
-          <tr class="bg-gray-100">
-            <th class="border px-4 py-2">Преподаватель</th>
-            <th class="border px-4 py-2">Мероприятие</th>
-            <th class="border px-4 py-2">Выполненные критерии</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each $reports as rpt}
-            <tr>
-              <td class="border px-4 py-2">{rpt.user}</td>
-              <td class="border px-4 py-2">{rpt.event_name}</td>
-              <td class="border px-4 py-2">{rpt.criteria.map(c => c.name).join(', ')}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+
+    const res = await fetch(`http://localhost:8000/api/report/${editingReport.id}/edit/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...updatedData,
+        user_id: editingReport.user_id,
+        role: 'admin'
+      })
+    });
+
+    if (res.ok) {
+      const updated = await res.json();
+      reports = reports.map(r => r.id === updated.id ? updated : r);
+      showModal = false;
+    } else {
+      const result = await res.json();
+      errorMessage = result?.error || 'Ошибка при сохранении';
+    }
+  }
+</script>
+
+<div class="mb-4">
+  <label class="block mb-2">ПЦК:</label>
+  <select bind:value={selectedPCK} on:change={fetchReports} class="border p-1 rounded">
+    {#each pckOptions as option}
+      <option value={option.value}>{option.label}</option>
+    {/each}
+  </select>
+
+
+  <button on:click={exportAdminExcel} class="bg-green-600 text-white px-4 py-2 rounded">
+    📥 Экспорт в Excel
+  </button>
+</div>
+
+
+
+<table class="w-full table-auto border">
+  <thead class="bg-gray-100">
+    <tr>
+      <th class="border px-3 py-2">Преподаватель</th>
+      <th class="border px-3 py-2">Мероприятие</th>
+      <th class="border px-3 py-2">Дата</th>
+      <th class="border px-3 py-2">Результат</th>
+      <th class="border px-3 py-2">Критерии</th>
+      <th class="border px-3 py-2">Баллы</th>
+      <th class="border px-3 py-2">Действие</th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each reports as r}
+      <tr>
+        <td class="border px-3 py-2">{r.user}</td>
+        <td class="border px-3 py-2">{r.event_name}</td>
+        <td class="border px-3 py-2">{r.date}</td>
+        <td class="border px-3 py-2">{r.result}</td>
+        <td class="border px-3 py-2">
+          <ul class="list-disc list-inside text-sm">
+            {#each r.criteria as c}
+              <li>{c.name} ({c.point})</li>
+            {/each}
+          </ul>
+        </td>
+        <td class="border px-3 py-2">{r.criteria.reduce((sum, c) => sum + c.point, 0)}</td>
+        <td class="border px-3 py-2">
+          <button on:click={() => openEditModal(r)} class="text-blue-600 underline">Редактировать</button>
+        </td>
+      </tr>
+    {/each}
+  </tbody>
+</table>
+
+{#if showModal}
+  <div class="fixed inset-0 bg-white bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 shadow-lg w-full max-w-2xl">
+      <h2 class="text-xl font-bold mb-4">Редактировать отчет</h2>
+
+      <label class="block mb-2">Название мероприятия:
+        <input bind:value={updatedData.event_name} class="border p-1 rounded w-full" />
+      </label>
+
+      <label class="block mb-2">Участники:
+        <input bind:value={updatedData.members} class="border p-1 rounded w-full" />
+      </label>
+
+      <label class="block mb-2">Описание:
+        <textarea bind:value={updatedData.about_event} class="border p-1 rounded w-full" rows="3" />
+      </label>
+
+      <label class="block mb-2">Результат:
+        <select bind:value={updatedData.result} class="border p-1 rounded w-full">
+          <option value="done">Выполнено</option>
+          <option value="passed">Сдано</option>
+          <option value="in_work">В работе</option>
+          <option value="process">В процессе</option>
+        </select>
+      </label>
+
+      <label class="block mb-2">Критерии:</label>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        {#each allCriteria as crit}
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={updatedData.criteria.includes(crit.id)}
+              on:change={() => {
+                if (updatedData.criteria.includes(crit.id)) {
+                  updatedData.criteria = updatedData.criteria.filter(c => c !== crit.id);
+                } else {
+                  updatedData.criteria = [...updatedData.criteria, crit.id];
+                }
+              }}
+            />
+            {crit.name} ({crit.point})
+          </label>
+        {/each}
+      </div>
+
+      {#if errorMessage}
+        <div class="text-red-600 text-sm mb-2">{errorMessage}</div>
+      {/if}
+
+      <div class="flex justify-end gap-2 mt-4">
+        <button on:click={() => showModal = false} class="px-4 py-2 bg-gray-300 rounded">Отмена</button>
+        <button on:click={saveReport} class="px-4 py-2 bg-blue-600 text-white rounded">Сохранить</button>
+      </div>
     </div>
-  
-    {#if $reportImage}
-      <img src="{$reportImage}" alt="Отчет ПЦК" class="report-image" />
-    {/if}
-  {/if}
+  </div>
+{/if}

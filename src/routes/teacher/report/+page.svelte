@@ -9,7 +9,7 @@
     let proofs = '';
     let criteria = [];
     let selectedCriteria = new Set();
-    let username = localStorage.getItem('userName'); // или из localStorage
+    let username = ''; 
   
     let error = '';
     let success = false;
@@ -22,11 +22,16 @@
     ];
   
     onMount(async () => {
+      username = localStorage.getItem('userName'); 
       const res = await fetch('http://localhost:8000/api/criteria/');
       criteria = await res.json();
     });
   
     async function submit() {
+      if (!criteria || criteria.length === 0) {
+        errorMessage = 'Выберите хотя бы один критерий';
+        return;
+      }
       const response = await fetch('http://localhost:8000/api/create_report/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
